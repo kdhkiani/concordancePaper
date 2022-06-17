@@ -1,0 +1,110 @@
+## functions used by multiple other extraction scripts
+
+assignValuesToHistBin <- function(values, bin_midpoints, bin.radius) {
+  n.vals <- length(values)
+  outputVec <- c()
+  for (ii in 1:n.vals) {
+    this.val <- values[ii]
+    distvec <- abs(this.val - bin_midpoints)
+    lowest.bin.distance <- min(distvec)
+    bin.index <- which(distvec == lowest.bin.distance)[1]
+    outputVec <- c(outputVec, bin_midpoints[bin.index])
+  }
+  return(outputVec)
+}
+
+# optional todo: if we end up using the colored stacked histograms, we can specify the colors here  
+makeHistogramOfValues <- function(data.vector, categories.vector, xlim_lower, xlim_upper,
+                                  bin.step.size, plot.title, 
+                                  xlabel = "", ylabel = "", color.by.category = T, y.axis.units = "counts") {
+  
+  
+  bin.radius      <- bin.step.size / 2
+  bin.midpoints   <- seq(xlim_lower + bin.step.size, xlim_upper, by = bin.step.size) - bin.radius
+  
+  bin.values <- assignValuesToHistBin(data.vector, bin.midpoints, bin.radius)
+  
+  stackedBarHistTib <- tibble(intConstantHhistBin = bin.values, intCategory = categories.vector)
+  
+  if (color.by.category) {
+    if (y.axis.units == "density") {
+      stackedBarHist <- ggplot(stackedBarHistTib, aes(x = intConstantHhistBin, y = ..prop.., group = 1, fill = intCategory)) +
+        geom_bar(stat="count", width = bin.radius * 2 * .90)
+      # ylim(0, (max(table(bin.values)[2:(length(table(bin.values)) - 2)]) * 1.05)/length(data.vector)) 
+    } else {
+      stackedBarHist <- ggplot(stackedBarHistTib, aes(x = intConstantHhistBin, fill = intCategory)) +
+        geom_bar(stat="count", width = bin.radius * 2 * .90)
+      # ylim(0, max(table(bin.values)[2:(length(table(bin.values)) - 2)]) * 1.05)
+    }
+  } else {
+    if (y.axis.units == "density") {
+      stackedBarHist <- ggplot(stackedBarHistTib, aes(x = intConstantHhistBin, y = ..prop.., group = 1)) +
+        geom_bar(stat="count", width = bin.radius * 2 * .90)
+      # ylim(0, (max(table(bin.values)[2:(length(table(bin.values)) - 2)]) * 1.05)/length(data.vector)) 
+    } else {
+      stackedBarHist <- ggplot(stackedBarHistTib, aes(x = intConstantHhistBin)) +
+        geom_bar(stat="count", width = bin.radius * 2 * .90)
+      # ylim(0, max(table(bin.values)[2:(length(table(bin.values)) - 2)]) * 1.05)
+    }
+  }
+  
+  stackedBarHist <- stackedBarHist +
+    theme_classic(base_size = 12) + 
+    xlab(xlabel) +
+    ylab(ylabel) +
+    ggtitle(paste0(plot.title, "\nleft-val ", table(bin.values)[1], " ", table(bin.values)[1]/length(data.vector),  
+                   ", right-val ", table(bin.values)[length(table(bin.values))], " ", table(bin.values)[length(table(bin.values))] / length(data.vector))) +
+    geom_vline(xintercept = 0) + geom_vline(xintercept = 1) +
+    xlim(min(bin.midpoints) - bin.radius, max(bin.midpoints) + bin.radius) 
+  
+  return(list(stackedBarHist, stackedBarHistTib, table(stackedBarHistTib$intConstantHhistBin)))
+}
+
+convertUpregCvalCatToDvalCat <- function(add.mult.spectrum.category.string) {
+  superadditive.peak.categories <- c("between-add-and-mult", "multiplicative", "super-multiplicative")
+  additive.peak.categories      <- c("additive", "ambiguous")
+  subadditive.peak.categories   <- c("sub-additive")
+  stopifnot(add.mult.spectrum.category.string %in% c(subadditive.peak.categories, additive.peak.categories, superadditive.peak.categories))
+  
+  if (add.mult.spectrum.category.string %in% subadditive.peak.categories) {
+    return("sub-additive") 
+  } else if (add.mult.spectrum.category.string %in% additive.peak.categories) {
+    return("additive") 
+  } else if (add.mult.spectrum.category.string %in% superadditive.peak.categories) {
+    return("super-additive")
+  } else {
+    return(NA)
+  }
+}
+
+loadLibraries <- function(){
+  library(tidyverse)
+  library(ggpubr)
+  library(GGally)
+  library(ggridges)
+  library(GenomicFeatures)
+  library(GenomicRanges)
+  library(chromVAR)
+  library(chromVARmotifs)
+  library(DESeq2)
+  library(boot)
+  library(BiocParallel)
+  library(motifmatchr)
+  library(data.table)
+  library(SummarizedExperiment)
+  library(BSgenome.Hsapiens.UCSC.hg38)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+  library(Matrix)
+  library(ChIPseeker)
+  library(org.Hs.eg.db)
+  library(clusterProfiler)
+  library(enrichplot)
+  library(msigdbr)
+  library(patchwork)
+  library(reshape2)
+  library(preprocessCore)
+  library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+  library(org.Hs.eg.db)
+  library(here)
+}
